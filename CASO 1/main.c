@@ -1,89 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "GRAPH.h"
+#include "graph.h"
 
-#define M 19
+#define M 1024
 
-long long var = 0;                          //Guarda el total de tweets unicos
-int cmpSTR(Type d1, Type d2);               //Nuestra funcion comparar
-void PrintAll(int, char*, int);             //Funcion que determina como imprimir el grafo
-void Print_reTweets(char* who);             //Funcion que imprime los re-tweets en un formato
-const char* getfield(char* line, int num);  //Funcion que devuelve un elemento del archivo .CSV
-
-int main()
-{
-    char *number, line[1024], temp[M]="000000", *src, *dst;
-
-    Graph g1 = create_graph(cmpSTR, PrintAll);//Crea un grafo y se pasan funciones
-
-    //Leemos el archivo y sus datos lo pasamos vertices del grafo
-    //Aqui leeremos los tweets que se reenvian (tweet origen, columna 2)
-    FILE *stream = fopen("RETWEETS.csv", "r");
-    if(stream!=NULL)
-    {   while (fgets(line, 1024, stream))
-        {   char* tmp = strdup(line);
-            number = malloc(sizeof(char)*M);
-            strcpy(number,getfield(tmp, 2)); //Guardamos el valor que estaba en la columna '2' del .csv
-
-            //Si el valor que sacamos no es igual al temp, lo añadimos al grafo
-            if(strcmp(temp,number)!=0){
-                 graph_addVertex(g1,number);
-                 strcpy(temp,number);//Ahora este valor sera el nuevo temp
-            }
-            free(tmp);
-        }
-        fclose(stream);
-        var = graph_vertexCount(g1);//Guardamos el total de tweets unicos que se reenvian
-    }
-    else
-        printf("No se pudo leer el archivo\n");
-
-    //Leemos el archivo y sus datos lo pasamos vertices del grafo
-    //Aqui leeremos todos los re-tweets en el dataset (columna 1)
-    stream = fopen("RETWEETS.csv", "r");
-    if(stream!=NULL)
-    {   while (fgets(line, 1024, stream))
-        {   char* tmp = strdup(line);
-            number = malloc(sizeof(char)*M);
-            strcpy(number,getfield(tmp, 1)); //Recibimos el valor de la columna 1 y
-            free(tmp);                       // lo pasamos al grafo
-            graph_addVertex(g1,number);
-        }
-        fclose(stream);
-    }
-    else
-        printf("No se pudo leer el archivo\n");
-
-    //Aqui se va conectar el re-tweet con el tweet origen
-    stream = fopen("RETWEETS.csv", "r");
-    if(stream!=NULL)
-    {   while (fgets(line, 1024, stream))
-        {   char* tmp = strdup(line);
-            src = malloc(sizeof(char)*M); //src = re-tweet
-            strcpy(src, getfield(tmp, 2));
-            free(tmp);
-
-            tmp = strdup(line);
-            dst = malloc(sizeof(char)*M); //dst = tweet origen
-            strcpy(dst, getfield(tmp, 1));
-            free(tmp);
-
-            graph_addEdge(g1, src, dst); //Se pasan al grafo para unirlos
-        }
-        fclose(stream);
-    }
-    else
-        printf("No se pudo abrir el archivo\n");
-
-    graph_PrintAll(g1,var); //Si todo sale bien, se imprime el grafo completo, conforme al formato dado
-    printf("\nTotal Tweets: %li\n", var); //Da el total de tweets unicos
-
-    graph_printSingleUser(g1,var,Print_reTweets,19);     //Ejemplo de printSingleUser: imprime los retweets que recibio el tweet 19.
-
-
-    graph_destroy(g1); //Se libera el espacio
-}
+int cmpSTR(Type d1, Type d2); //Aqui estan nuestras funciones de
+void printSTR(char*);        //comparacion y de impresion
 
 const char* getfield(char* line, int num)
 {
@@ -98,6 +21,97 @@ const char* getfield(char* line, int num)
     return NULL;
 }
 
+int main()
+{
+    char *name, *number, *extra, *person, *movie;
+    char line[1024];
+
+    Graph g1 = create_graph(cmpSTR, printSTR);  //Se crea el grafo
+
+    //Primero, se va a abrir el archivo de personas y se sacaran 3 datos
+    //los cuales se pondrán en una estructura que representará un vertice
+    FILE* stream = fopen("vertex_person.csv", "r");
+    if(stream!=NULL)
+    {
+        while (fgets(line, 1024, stream))
+        {
+            char* tmp = strdup(line);
+            name = malloc(sizeof(char)*M);
+            strcpy(name,getfield(tmp, 1));  //El nombre
+            free(tmp);
+            tmp = strdup(line);
+            number = malloc(sizeof(char)*5);
+            strcpy(number,getfield(tmp, 2)); //La edad
+            free(tmp);
+            tmp = strdup(line);
+            extra = malloc(sizeof(char)*M);
+            strcpy(extra,getfield(tmp, 3)); //Mayor o Adulto
+            free(tmp);
+
+            graph_addVertex(g1,0, name, number, extra);
+
+        }
+        fclose(stream);
+    }
+    else
+        printf("No se pudo leer el archivo\n");
+
+    //Aqui leeremos el archivo con las peliculas y sacaremos 3 cosas:
+    //donde lo pondremos en una estructura que será un vertice
+    stream = fopen("vertex_movies.csv", "r");
+    if(stream!=NULL)
+    {
+        while (fgets(line, 1024, stream))
+        {
+            char* tmp = strdup(line);
+            name = malloc(sizeof(char)*M);
+            strcpy(name,getfield(tmp, 1)); //Nombre
+            free(tmp);
+            tmp = strdup(line);
+            number = malloc(sizeof(char)*5);
+            strcpy(number,getfield(tmp, 2)); //Año de creacion
+            free(tmp);
+            tmp = strdup(line);
+            extra = malloc(sizeof(char)*M);
+            strcpy(extra,getfield(tmp, 3)); //Frase famosa
+            free(tmp);
+
+            graph_addVertex(g1,1, name, number, extra);
+
+        }
+        fclose(stream);
+    }
+    else
+        printf("No se pudo leer el archivo\n");
+
+    //AL final, se usará este archivo para unir cada actor(persona) con la
+    //pelicula en donde participo. Estas uniones serán las aristas
+    stream = fopen("edges_PersonMovies.csv", "r");
+    if(stream!=NULL)
+    {
+        while (fgets(line, 1024, stream))
+        {
+            char* tmp = strdup(line);
+            person = malloc(sizeof(char)*M);
+            strcpy(person, getfield(tmp, 1));
+            free(tmp);
+
+            tmp = strdup(line);
+            movie = malloc(sizeof(char)*M);
+            strcpy(movie, getfield(tmp, 2));
+            free(tmp);
+
+            graph_addEdge(g1, person, movie);
+        }
+        fclose(stream);
+    }
+    else
+        printf("No se pudo leer el archivo\n");
+
+    print(g1); //Al final se imprime el grafo final
+    graph_destroy(g1);
+}
+
 int cmpSTR(Type d1, Type d2)
 {
     if(strcmp(d1,d2)==0)
@@ -106,12 +120,7 @@ int cmpSTR(Type d1, Type d2)
         return 1;
 }
 
-void PrintAll(int id, char* account, int size)
+void printSTR(char* movie)
 {
-    printf("\n(Tweet ID:%d - %s) | # of Re-Tweets: %d", id, account, size);
-}
-
-void Print_reTweets(char* who)
-{
-    printf("\n\tRe-Tweet: %s", who);
+    printf("\n\tMOVIE: %s", movie);
 }
